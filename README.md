@@ -4,18 +4,8 @@ Slackにメッセージを投稿すると自分の代わりに打刻してくれ
 
 ## 実行の仕方
 
-モジュールは入れておく
-
 ```
-pip install slackbot scrapy selenium slacker
-```
-
-クローンして実行
-
-```
-git clone https://github.com/kentakozuka/dakoku_bot.git
-cd dakoku_bot
-python run.py
+doker pull kentakozuka/centos7-slackbot
 ```
 
 ## 出勤

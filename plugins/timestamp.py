@@ -19,8 +19,8 @@ class AbsCrawler:
         self.user_info = None
         # ドライバを生成
         self.driver = self.init_driver()
-        # 2秒待機
-        self.wait = WebDriverWait(self.driver, 2)
+        # 最大の待機時間（秒）を設定
+        self.wait = WebDriverWait(self.driver, 5)
 
     def set_user_info(self, user_info):
         ''' ユーザー情報のセッター '''
