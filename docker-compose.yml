@@ -1,0 +1,23 @@
+# python container
+webserver:
+    #image: kentakozuka/centos7-slackbot
+    build: .
+    volumes:
+        - ${PWD}:/home/work/dakoku_v2
+    ports:
+        - "8000:80"
+    links:
+        - mysql
+
+# DB container
+mysql:
+    restart: always
+    image: mysql:5.7
+    container_name: database
+    volumes:
+        - ./data/mysql:/var/lib/mysql
+    environment:
+        - MYSQL_ROOT_PASSWORD=root
+        - MYSQL_DATABASE=malicious
+        - MYSQL_USER=root
+        - MYSQL_PASSWORD=root
