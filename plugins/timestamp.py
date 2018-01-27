@@ -3,8 +3,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 import os
 from urllib.parse import urlencode
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from abc import ABCMeta, abstractmethod
+import parse # r1chardj0n3s/parse
 
 import const
 
@@ -20,7 +21,7 @@ class AbsCrawler:
         # ドライバを生成
         self.driver = self.init_driver()
         # 最大の待機時間（秒）を設定
-        self.wait = WebDriverWait(self.driver, 5)
+        self.wait = WebDriverWait(self.driver, 20)
 
     def set_user_info(self, user_info):
         ''' ユーザー情報のセッター '''
@@ -59,16 +60,25 @@ class AbsCrawler:
         ''' 残業申請画面に遷移 '''
 
         # パラメータを設定
-        params = self.user_info['shinsei_param']
-        params['f_user_id']     = self.user_info['id']
+        params = {
+                  "f_user_id"       :""
+                , "f_user_name"     :"dummy"
+                , "f_kinmubi"       :""
+                , "f_office_id"     :""
+                , "f_shift_index"   :""
+                , "f_sinsei_code"   :"04"
+                }
+        params['f_user_id']     = self.user_info['daim_id']
         params['f_office_id']   = self.user_info['office_id']
 
-        nowStr = datetime.now().strftime('%Y%m%d')
+        JST = timezone(timedelta(hours=+9), 'JST')
+        nowStr = datetime.now(JST).strftime('%Y%m%d')
         params['f_shift_index'] = nowStr \
                                 + self.user_info['start_hour'] \
                                 + self.user_info['start_min'] + '00'
         params['f_kinmubi']     = nowStr
         page_url = self.constructUrl(const.SHINSEI_URLS, params)
+        print(page_url)
 
         self.go_page(page_url)
 
@@ -81,8 +91,8 @@ class AbsCrawler:
         loginid = self.driver.find_element_by_id('id')
         password = self.driver.find_element_by_id('pass')
 
-        loginid.send_keys(self.user_info['id'])
-        password.send_keys(self.user_info['pw'])
+        loginid.send_keys(self.user_info['daim_id'])
+        password.send_keys(self.user_info['daim_password'])
 
         self.driver.find_element_by_name("form01").submit()
 
@@ -105,7 +115,31 @@ class AbsCrawler:
 
     def apply_overtime(self):
         ''' 残業申請処理の実行 '''
-        pass
+
+        def_leaving_hour = self.driver.find_element_by_name(const.FORM_NAME_80)
+        def_leaving_hour.send_keys(self.user_info['leave_hour'])
+
+        def_leaving_min = self.driver.find_element_by_name(const.FORM_NAME_81)
+        def_leaving_min.send_keys(self.user_info['leave_min'])
+
+        # 退勤時刻を見つける
+        el_leave_time = self.driver.find_elements_by_xpath("//*[contains(text(), '打刻時刻')]")[0]
+        str_leave_time = el_leave_time.find_element_by_xpath('../following-sibling::td').text
+        l_leave_time = parse.parse("{}:{}-{}:{}", str_leave_time)
+
+        # 退勤打刻の入力
+        actual_leaving_hour = self.driver.find_element_by_name(const.FORM_NAME_82)
+        actual_leaving_hour.send_keys(l_leave_time[2])
+
+        actual_leaving_min = self.driver.find_element_by_name(const.FORM_NAME_83)
+        actual_leaving_min.send_keys(l_leave_time[3])
+
+        self.set_option(const.FORM_NAME_91, const.PROJECT_CATEGORY_PJ1)
+
+        overtime_cause = self.driver.find_element_by_name(const.FORM_NAME_60)
+        overtime_cause.send_keys(self.user_info['overtime_cause'])
+
+        self.driver.find_element_by_name("form01").submit()
 
     #######################################
     # その他
@@ -135,7 +169,6 @@ class AbsCrawler:
 
     def take_screen_shot(self):
         ''' スクリーンショットを取る '''
-        # Get Screen Shot
         FILENAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screen.png")
         self.driver.save_screenshot(FILENAME)
         return FILENAME
@@ -196,10 +229,20 @@ class ApplyOvertimeCrawler(AbsCrawler):
         super().proc_with_page_move(super().go_login_page)
         # ログイン実行
         super().proc_with_page_move(super().login)
+        # 打刻画面遷移
+        super().proc_with_page_move(super().go_time_stamp_page)
+        # 退勤打刻実行
+        super().proc_with_page_move(super().stamp_finish)
+        # ログインページ遷移
+        super().proc_with_page_move(super().go_login_page)
+        # ログイン実行
+        super().proc_with_page_move(super().login)
         # 申請画面遷移
         super().proc_with_page_move(super().go_shinsei_page)
         # 申請実行
-        #super().proc_with_page_move(super().apply_overtime)
+        super().proc_with_page_move(super().apply_overtime)
+        # 申請画面遷移
+        super().proc_with_page_move(super().go_shinsei_page)
         # スクショ
         img_path = super().take_screen_shot()
         # ドライバを閉じる

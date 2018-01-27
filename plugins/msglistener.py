@@ -2,7 +2,8 @@ from slackbot.bot import respond_to
 from slackbot.bot import listen_to
 from slackbot.bot import default_reply
 
-from handler import MessageHandler
+from msghandler import MessageHandler
+from cmdhandler import CommandHandler
 import timestamp as Ts
 import const
 
@@ -35,3 +36,9 @@ def finish_work(message):
             const.msg_apply_overtime, \
             const.msg_apply_greeting)
     mh.run_crawler()
+
+@respond_to('')
+def mention_func(message):
+    ''' すべてのダイレクトメッセージを待ち受ける '''
+    ch = CommandHandler(message)
+    message.reply(ch.get_msg())

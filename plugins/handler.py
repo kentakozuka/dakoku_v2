@@ -1,55 +1,46 @@
-from slacker import Slacker
-
-import chardet
-import json
-import os
-
-# 定数モジュール
-import sys
-sys.path.append("./plugins/")
+import mysql.connector
 import const
-import timestamp as Ts
 
-class MessageHandler():
-    '''メッセージハンドリングクラス'''
+class Handler:
+    ''' ハンドラー親クラス '''
 
-    def __init__(self, message, crawlrunner, finish_msg, greeting_msg):
+    def __init__(self, message):
         self.message = message
-        self.crawlrunner = crawlrunner
-        self.finish_msg = finish_msg
-        self.greeting_msg = greeting_msg
+        self.connect = self.connect_db()
+        self.cursor = self.create_cursor(self.connect)
 
-        self.version_info = self.get_version_info
+    def connect_db(self):
+        # connect
+        return mysql.connector.connect( \
+                                host=const.DB_HOST \
+                            ,   port=const.DB_PORT \
+                            ,   user=const.DB_USER \
+                            ,   password=const.DB_PASSWORD \
+                            ,   database=const.DB_DATABASE \
+                            ,   charset='utf8')
 
-        curpath = (os.path.dirname(__file__))
-        self.fpath = curpath + const.FPATH
-        self.version_info = self.get_version_info()
 
-    def run_crawler(self):
-        ''' クロール共通処理 '''
-        # ユーザー名を取得
-        send_user = self.get_send_user()
-        user_info = self.get_user_info(send_user)
+    def create_cursor(self, connect):
+        ''' create cursor with dictionary option'''
+        return connect.cursor(dictionary=True)
 
-        # チャンネル名を取得
-        channel_info = self.get_channel_info()
+    def get_message_body(self):
+        ''' メッセージを取得'''
+        return self.message.body['text']
 
-        # ユーザー情報が存在すれば打刻処理を行う
-        if user_info:
-            # クロール
-            img_path = self.crawlrunner.run(user_info)
-            # スクショを投稿
-            self.post_img(img_path)
-        else:
-            self.message.reply(self.greeting_msg.format(send_user))
-
-    def get_user_info(self, su):
+    def get_user_info(self, slack_user_name):
         ''' ユーザー情報を取得 '''
-        # jsonファイルを読み込む
-        f = open(self.fpath, encoding='utf-8')
-        d = json.load(f)
-        f.close()
-        return [d[i] for i in range(len(d)) if d[i]["slack_user_name"] == su][0]
+        select_query =  ('SELECT * FROM user LEFT JOIN office ON user.office_pk=office.id WHERE user.slack_user_name = %(slack_user_name)s')
+        self.cursor.execute(select_query, ({'slack_user_name': slack_user_name}))
+        return self.cursor.fetchone()
+
+    def is_all_fields_filled(self, slack_user_name):
+        ''' すべての項目に値が入っているか確認する '''
+        user_info = self.get_user_info(slack_user_name)
+        for k in user_info.keys():
+            if user_info[k] is None:
+                return False
+        return True
 
     def get_send_user(self):
         '''ユーザ名の取得'''
@@ -63,13 +54,28 @@ class MessageHandler():
         '''バージョン情報の取得'''
         return const.VERSION_INFO
 
-    def post_img(self, file_path):
-        ''' スクショを投稿する '''
-        # 投稿するチャンネル名
-        c_name = self.get_channel_info()['name']
-        # 投稿
-        slacker = Slacker(const.API_TOKEN)
-        slacker.files.upload( \
-                    file_path, \
-                    channels=[c_name], \
-                    title=self.finish_msg.format(self.get_send_user(), self.version_info))
+    def execute_query(self, query, params):
+        '''クエリを実行する'''
+        try:
+            self.cursor.execute(query, params)
+
+        except Exception as e:
+            self.connect.rollback()
+            print(e)
+            raise e
+
+        finally:
+            pass
+
+    def commit(self):
+        '''コミットする'''
+        self.connect.commit()
+
+    def close_cursor(self):
+        '''cursorを閉じる'''
+        self.cursor.close()
+
+    def close_connection(self):
+        '''接続を閉じる'''
+        self.connect.close()
+

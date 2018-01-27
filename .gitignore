@@ -2,13 +2,18 @@
 *__pycache__
 
 slackbot_settings.py
-build.sh
-run_exec.sh
+compose_up.sh
+docker-compose.yml
 create_tables.sql
 ghostdriver.log
 package-lock.json
 tags
+nohup.out
+sample_db.py
+insert_data.py
+usage.txt
+office_info.py*
+user_info.json
 
 plugins/const.py
-plugins/user_info.json
 plugins/screen.png
