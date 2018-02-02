@@ -18,6 +18,7 @@ Slackにメッセージを投稿すると自分の代わりに打刻してくれ
 
 ## ユーザー情報登録・変更コマンド
 
+```
 使い方: @dakoku_bot コマンド
 
 Slack上で動作する打刻ボット
@@ -57,3 +58,11 @@ Slack上で動作する打刻ボット
 
             入力例:
                 @dakoku_bot del
+
+```
+
+
+## refactoring
+
+* クロールする部分はchain of responsibilityパターンが使えるかも
+* ログを実装したい
